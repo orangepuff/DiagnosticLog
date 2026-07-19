@@ -215,8 +215,37 @@ baseUrl: "https://localhost:7101"                    // {Scheme}://{Host}
 `url`/`baseUrl` are kept separate rather than one combined string so you can filter/group by
 `baseUrl` later (e.g. "every request that hit this host") without parsing the full URL back apart.
 
+`ICurrentUser` here is your own app's abstraction, not part of this library — swap in whatever
+represents "who is making this request" for you. A concrete example, reading the id straight off
+the validated JWT:
+
+```csharp
+public interface ICurrentUser
+{
+    int UserId { get; }
+}
+
+public class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICurrentUser
+{
+    public int UserId
+    {
+        get
+        {
+            var value = httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.TryParse(value, out var id)
+                ? id
+                : throw new InvalidOperationException("No authenticated user id claim present. Ensure the endpoint requires authentication.");
+        }
+    }
+}
+```
+
+Wired up alongside the decorator:
+
 ```csharp
 builder.Services.AddDiagnostics(options => { /* ... */ });
+
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // Must come after AddDiagnostics — overrides its base ITransactionLogger registration.
 // Scoped, not singleton, because ICurrentUser/IHttpContextAccessor are request-scoped.
@@ -226,10 +255,12 @@ builder.Services.AddScoped<ITransactionLogger>(sp => new RequestContextTransacti
     sp.GetRequiredService<IHttpContextAccessor>()));
 ```
 
-`ICurrentUser` here is your own app's abstraction, not part of this library — swap in whatever
-represents "who is making this request" for you. Every `BeginTransaction` call anywhere in the
-app, direct or through `TransactionMiddleware`'s own per-request span, now goes through this
-decorator and gets `sUser`/`sUrl` attributed consistently.
+Every `BeginTransaction` call anywhere in the app, direct or through `TransactionMiddleware`'s own
+per-request span, now goes through this decorator and gets `sUser`/`sUrl` attributed consistently.
+`CurrentUser.UserId` throwing when there's no claim is intentional here — `RequestContextTransactionLogger`
+already catches exactly that `InvalidOperationException` above and leaves `sUser` unset rather than
+fail the request, so an unauthenticated or claim-less call just logs without an attributed user
+instead of blowing up.
 
 ### 6. Propagate correlation ids on outbound HTTP calls (optional)
 
