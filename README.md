@@ -90,7 +90,7 @@ builder.Services.AddDiagnosticsAspNetCore();
 // ...
 
 // Must run AFTER authentication middleware if you plan to stamp the current user
-// onto transaction spans (see "Attaching the current user" below).
+// onto transaction spans (see "Overriding user attribution" below).
 app.UseDiagnostics();
 ```
 
@@ -138,7 +138,131 @@ Body capture (`RequestJson`/`ResponseJson`/`RequestXml`/etc.) is always explicit
 call — nothing is auto-captured, so you decide exactly what's worth persisting and never leak a
 sensitive body by accident.
 
-### 5. Propagate correlation ids on outbound HTTP calls (optional)
+### 5. Overriding user attribution (optional)
+
+By default, `TransactionMiddleware` stamps `sUser` on the request's transaction span straight
+from ASP.NET Core's own auth principal:
+
+```csharp
+// inside TransactionMiddleware, runs automatically — no code needed on your side
+if (context.User.Identity?.IsAuthenticated == true)
+{
+    scope.SetUser(context.User.Identity.Name);
+}
+```
+
+That's often not what you want — e.g. you may want an internal numeric user id instead of
+whatever name is on the claims principal, or you want every span opened *anywhere* during a
+request (not just `TransactionMiddleware`'s own root span for the request) to automatically
+carry the current user/URL, without every call site calling `SetUser`/`SetUrl` itself. Do this by
+decorating `ITransactionLogger` and re-registering it *after* `AddDiagnostics(...)`, so DI resolves
+your decorator instead of the library's own implementation:
+
+```csharp
+public sealed class RequestContextTransactionLogger(
+    ITransactionLogger inner, ICurrentUser currentUser, IHttpContextAccessor httpContextAccessor)
+    : ITransactionLogger
+{
+    public ITransactionScope BeginTransaction(string category, string? message = null)
+    {
+        var scope = inner.BeginTransaction(category, message);
+
+        try
+        {
+            scope.SetUser(currentUser.UserId.ToString());
+        }
+        catch (InvalidOperationException)
+        {
+            // No resolvable user for this request — leave sUser unset rather than fail
+            // the request just because logging couldn't attribute an actor.
+        }
+
+        var request = httpContextAccessor.HttpContext?.Request;
+        if (request is not null)
+        {
+            scope.SetUrl(
+                url: $"{request.Path}{request.QueryString}",
+                baseUrl: $"{request.Scheme}://{request.Host}");
+        }
+
+        return scope;
+    }
+}
+```
+
+Note this `SetUrl` call does real work beyond what `TransactionMiddleware` already does: the
+middleware only sets the URL on its own root span for the request. Any *nested* span your
+application code opens later (e.g. `transactionLogger.BeginTransaction("UploadPdf", ...)` inside
+a command handler) doesn't inherit it — going through this decorator, every span gets it, root
+or nested.
+
+For a request `POST https://localhost:7101/api/pdf-files/upload?projectId=abc123`:
+
+| `HttpRequest` property | Value |
+|---|---|
+| `request.Scheme` | `https` |
+| `request.Host` | `localhost:7101` (port included) |
+| `request.Path` | `/api/pdf-files/upload` |
+| `request.QueryString` | `?projectId=abc123` (already includes the leading `?`; empty string, not `"?"`, when there's no query) |
+
+...which `SetUrl` receives as:
+
+```csharp
+url:     "/api/pdf-files/upload?projectId=abc123"   // {Path}{QueryString}
+baseUrl: "https://localhost:7101"                    // {Scheme}://{Host}
+```
+
+`url`/`baseUrl` are kept separate rather than one combined string so you can filter/group by
+`baseUrl` later (e.g. "every request that hit this host") without parsing the full URL back apart.
+
+`ICurrentUser` here is your own app's abstraction, not part of this library — swap in whatever
+represents "who is making this request" for you. A concrete example, reading the id straight off
+the validated JWT:
+
+```csharp
+public interface ICurrentUser
+{
+    int UserId { get; }
+}
+
+public class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICurrentUser
+{
+    public int UserId
+    {
+        get
+        {
+            var value = httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.TryParse(value, out var id)
+                ? id
+                : throw new InvalidOperationException("No authenticated user id claim present. Ensure the endpoint requires authentication.");
+        }
+    }
+}
+```
+
+Wired up alongside the decorator:
+
+```csharp
+builder.Services.AddDiagnostics(options => { /* ... */ });
+
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+// Must come after AddDiagnostics — overrides its base ITransactionLogger registration.
+// Scoped, not singleton, because ICurrentUser/IHttpContextAccessor are request-scoped.
+builder.Services.AddScoped<ITransactionLogger>(sp => new RequestContextTransactionLogger(
+    sp.GetRequiredService<TransactionLoggerImplementation>(),
+    sp.GetRequiredService<ICurrentUser>(),
+    sp.GetRequiredService<IHttpContextAccessor>()));
+```
+
+Every `BeginTransaction` call anywhere in the app, direct or through `TransactionMiddleware`'s own
+per-request span, now goes through this decorator and gets `sUser`/`sUrl` attributed consistently.
+`CurrentUser.UserId` throwing when there's no claim is intentional here — `RequestContextTransactionLogger`
+already catches exactly that `InvalidOperationException` above and leaves `sUser` unset rather than
+fail the request, so an unauthenticated or claim-less call just logs without an attributed user
+instead of blowing up.
+
+### 6. Propagate correlation ids on outbound HTTP calls (optional)
 
 ```csharp
 using Diagnostics.AspNetCore.DependencyInjection;
