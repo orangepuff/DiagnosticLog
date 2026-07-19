@@ -1,0 +1,50 @@
+name: Publish to NuGet.org
+
+on:
+  push:
+    branches:
+      - "Release/v*"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Extract version from branch name
+        id: version
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          VERSION="${BRANCH_NAME#Release/v}"
+          echo "Publishing version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Pack Diagnostics.Abstractions
+        run: dotnet pack src/Diagnostics.Abstractions/Diagnostics.Abstractions.csproj -c Release -o artifacts -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Pack Diagnostics.NLog
+        run: dotnet pack src/Diagnostics.NLog/Diagnostics.NLog.csproj -c Release -o artifacts -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Pack Diagnostics.AspNetCore
+        run: dotnet pack src/Diagnostics.AspNetCore/Diagnostics.AspNetCore.csproj -c Release -o artifacts -p:Version=${{ steps.version.outputs.version }}
+
+      # Requires a matching Trusted Publishing policy configured on nuget.org
+      - name: NuGet login (Trusted Publishing)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: orangepuff
+
+      - name: Push to NuGet.org
+        run: dotnet nuget push artifacts/*.nupkg --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
