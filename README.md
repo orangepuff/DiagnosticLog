@@ -152,8 +152,9 @@ if (context.User.Identity?.IsAuthenticated == true)
 ```
 
 That's often not what you want — e.g. you may want an internal numeric user id instead of
-whatever name is on the claims principal, or you want the same value for every log line and
-transaction opened during a request without calling `SetUser` yourself each time. Do this by
+whatever name is on the claims principal, or you want every span opened *anywhere* during a
+request (not just `TransactionMiddleware`'s own root span for the request) to automatically
+carry the current user/URL, without every call site calling `SetUser`/`SetUrl` itself. Do this by
 decorating `ITransactionLogger` and re-registering it *after* `AddDiagnostics(...)`, so DI resolves
 your decorator instead of the library's own implementation:
 
@@ -176,10 +177,24 @@ public sealed class RequestContextTransactionLogger(
             // the request just because logging couldn't attribute an actor.
         }
 
+        var request = httpContextAccessor.HttpContext?.Request;
+        if (request is not null)
+        {
+            scope.SetUrl(
+                url: $"{request.Path}{request.QueryString}",
+                baseUrl: $"{request.Scheme}://{request.Host}");
+        }
+
         return scope;
     }
 }
 ```
+
+Note this `SetUrl` call does real work beyond what `TransactionMiddleware` already does: the
+middleware only sets the URL on its own root span for the request. Any *nested* span your
+application code opens later (e.g. `transactionLogger.BeginTransaction("UploadPdf", ...)` inside
+a command handler) doesn't inherit it — going through this decorator, every span gets it, root
+or nested.
 
 ```csharp
 builder.Services.AddDiagnostics(options => { /* ... */ });
@@ -195,7 +210,7 @@ builder.Services.AddScoped<ITransactionLogger>(sp => new RequestContextTransacti
 `ICurrentUser` here is your own app's abstraction, not part of this library — swap in whatever
 represents "who is making this request" for you. Every `BeginTransaction` call anywhere in the
 app, direct or through `TransactionMiddleware`'s own per-request span, now goes through this
-decorator and gets `sUser` attributed consistently.
+decorator and gets `sUser`/`sUrl` attributed consistently.
 
 ### 6. Propagate correlation ids on outbound HTTP calls (optional)
 
