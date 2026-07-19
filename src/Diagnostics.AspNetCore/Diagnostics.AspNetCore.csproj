@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Diagnostics.AspNetCore</RootNamespace>
     <AssemblyName>Diagnostics.AspNetCore</AssemblyName>
-    <PackageId>Diagnostics.AspNetCore</PackageId>
+    <PackageId>Orangepuff.Diagnostics.AspNetCore</PackageId>
     <Description>
       Optional ASP.NET Core integration for the Diagnostics logging library: per-request
       transaction middleware (metadata only, never auto-captures bodies) and X-Correlation-ID

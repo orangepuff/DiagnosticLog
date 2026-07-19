@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Diagnostics.Abstractions</RootNamespace>
     <AssemblyName>Diagnostics.Abstractions</AssemblyName>
-    <PackageId>Diagnostics.Abstractions</PackageId>
+    <PackageId>Orangepuff.Diagnostics.Abstractions</PackageId>
     <Description>
       Contract/port for the Diagnostics logging library: ITransactionLogger, ITransactionScope,
       TransactionRecord, ICorrelationContext. Zero dependency on NLog, EF Core, ASP.NET Core, or

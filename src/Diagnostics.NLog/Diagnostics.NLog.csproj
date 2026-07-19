@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Diagnostics.NLog</RootNamespace>
     <AssemblyName>Diagnostics.NLog</AssemblyName>
-    <PackageId>Diagnostics.NLog</PackageId>
+    <PackageId>Orangepuff.Diagnostics.NLog</PackageId>
     <Description>
       NLog adapter for the Diagnostics logging library: DB-backed config (Dapper),
       SqlBulkCopy-backed custom targets for [Logs]/[Transactions], and the ITransactionLogger /
