@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Diagnostics.NLog</RootNamespace>
+    <AssemblyName>Diagnostics.NLog</AssemblyName>
+    <PackageId>Diagnostics.NLog</PackageId>
+    <Description>
+      NLog adapter for the Diagnostics logging library: DB-backed config (Dapper),
+      SqlBulkCopy-backed custom targets for [Logs]/[Transactions], and the ITransactionLogger /
+      ILogger bridge. Implements the ports in Diagnostics.Abstractions.
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NLog" />
+    <PackageReference Include="NLog.Extensions.Logging" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Diagnostics.Abstractions\Diagnostics.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

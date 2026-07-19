@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Diagnostics.Abstractions/Diagnostics.Abstractions.csproj" />
+    <Project Path="src/Diagnostics.NLog/Diagnostics.NLog.csproj" />
+    <Project Path="src/Diagnostics.AspNetCore/Diagnostics.AspNetCore.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/unit/">
+    <Project Path="tests/unit/Diagnostics.Logs.UnitTests/Diagnostics.Logs.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/integration/">
+    <Project Path="tests/integration/Diagnostics.Logs.IntegrationTests/Diagnostics.Logs.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Needed to construct DefaultHttpContext etc. for the Diagnostics.AspNetCore middleware tests. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Diagnostics.Abstractions\Diagnostics.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\src\Diagnostics.NLog\Diagnostics.NLog.csproj" />
+    <ProjectReference Include="..\..\..\src\Diagnostics.AspNetCore\Diagnostics.AspNetCore.csproj" />
+  </ItemGroup>
+
+</Project>

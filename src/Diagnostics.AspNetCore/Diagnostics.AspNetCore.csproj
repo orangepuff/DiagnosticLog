@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Diagnostics.AspNetCore</RootNamespace>
+    <AssemblyName>Diagnostics.AspNetCore</AssemblyName>
+    <PackageId>Diagnostics.AspNetCore</PackageId>
+    <Description>
+      Optional ASP.NET Core integration for the Diagnostics logging library: per-request
+      transaction middleware (metadata only, never auto-captures bodies) and X-Correlation-ID
+      propagation (inbound middleware + outbound DelegatingHandler).
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Diagnostics.Abstractions\Diagnostics.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

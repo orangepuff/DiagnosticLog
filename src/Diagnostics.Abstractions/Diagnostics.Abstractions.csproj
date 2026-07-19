@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Diagnostics.Abstractions</RootNamespace>
+    <AssemblyName>Diagnostics.Abstractions</AssemblyName>
+    <PackageId>Diagnostics.Abstractions</PackageId>
+    <Description>
+      Contract/port for the Diagnostics logging library: ITransactionLogger, ITransactionScope,
+      TransactionRecord, ICorrelationContext. Zero dependency on NLog, EF Core, ASP.NET Core, or
+      OCRWeb.* so it can be published as a standalone NuGet package.
+    </Description>
+  </PropertyGroup>
+
+</Project>
