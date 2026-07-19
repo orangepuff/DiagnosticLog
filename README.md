@@ -196,6 +196,25 @@ application code opens later (e.g. `transactionLogger.BeginTransaction("UploadPd
 a command handler) doesn't inherit it — going through this decorator, every span gets it, root
 or nested.
 
+For a request `POST https://localhost:7101/api/pdf-files/upload?projectId=abc123`:
+
+| `HttpRequest` property | Value |
+|---|---|
+| `request.Scheme` | `https` |
+| `request.Host` | `localhost:7101` (port included) |
+| `request.Path` | `/api/pdf-files/upload` |
+| `request.QueryString` | `?projectId=abc123` (already includes the leading `?`; empty string, not `"?"`, when there's no query) |
+
+...which `SetUrl` receives as:
+
+```csharp
+url:     "/api/pdf-files/upload?projectId=abc123"   // {Path}{QueryString}
+baseUrl: "https://localhost:7101"                    // {Scheme}://{Host}
+```
+
+`url`/`baseUrl` are kept separate rather than one combined string so you can filter/group by
+`baseUrl` later (e.g. "every request that hit this host") without parsing the full URL back apart.
+
 ```csharp
 builder.Services.AddDiagnostics(options => { /* ... */ });
 
