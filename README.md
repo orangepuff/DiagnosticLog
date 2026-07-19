@@ -90,7 +90,7 @@ builder.Services.AddDiagnosticsAspNetCore();
 // ...
 
 // Must run AFTER authentication middleware if you plan to stamp the current user
-// onto transaction spans (see "Attaching the current user" below).
+// onto transaction spans (see "Overriding user attribution" below).
 app.UseDiagnostics();
 ```
 
@@ -138,7 +138,66 @@ Body capture (`RequestJson`/`ResponseJson`/`RequestXml`/etc.) is always explicit
 call — nothing is auto-captured, so you decide exactly what's worth persisting and never leak a
 sensitive body by accident.
 
-### 5. Propagate correlation ids on outbound HTTP calls (optional)
+### 5. Overriding user attribution (optional)
+
+By default, `TransactionMiddleware` stamps `sUser` on the request's transaction span straight
+from ASP.NET Core's own auth principal:
+
+```csharp
+// inside TransactionMiddleware, runs automatically — no code needed on your side
+if (context.User.Identity?.IsAuthenticated == true)
+{
+    scope.SetUser(context.User.Identity.Name);
+}
+```
+
+That's often not what you want — e.g. you may want an internal numeric user id instead of
+whatever name is on the claims principal, or you want the same value for every log line and
+transaction opened during a request without calling `SetUser` yourself each time. Do this by
+decorating `ITransactionLogger` and re-registering it *after* `AddDiagnostics(...)`, so DI resolves
+your decorator instead of the library's own implementation:
+
+```csharp
+public sealed class RequestContextTransactionLogger(
+    ITransactionLogger inner, ICurrentUser currentUser, IHttpContextAccessor httpContextAccessor)
+    : ITransactionLogger
+{
+    public ITransactionScope BeginTransaction(string category, string? message = null)
+    {
+        var scope = inner.BeginTransaction(category, message);
+
+        try
+        {
+            scope.SetUser(currentUser.UserId.ToString());
+        }
+        catch (InvalidOperationException)
+        {
+            // No resolvable user for this request — leave sUser unset rather than fail
+            // the request just because logging couldn't attribute an actor.
+        }
+
+        return scope;
+    }
+}
+```
+
+```csharp
+builder.Services.AddDiagnostics(options => { /* ... */ });
+
+// Must come after AddDiagnostics — overrides its base ITransactionLogger registration.
+// Scoped, not singleton, because ICurrentUser/IHttpContextAccessor are request-scoped.
+builder.Services.AddScoped<ITransactionLogger>(sp => new RequestContextTransactionLogger(
+    sp.GetRequiredService<TransactionLoggerImplementation>(),
+    sp.GetRequiredService<ICurrentUser>(),
+    sp.GetRequiredService<IHttpContextAccessor>()));
+```
+
+`ICurrentUser` here is your own app's abstraction, not part of this library — swap in whatever
+represents "who is making this request" for you. Every `BeginTransaction` call anywhere in the
+app, direct or through `TransactionMiddleware`'s own per-request span, now goes through this
+decorator and gets `sUser` attributed consistently.
+
+### 6. Propagate correlation ids on outbound HTTP calls (optional)
 
 ```csharp
 using Diagnostics.AspNetCore.DependencyInjection;
