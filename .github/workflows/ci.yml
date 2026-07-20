@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore DiagnosticLog.slnx
+
+      - name: Build
+        run: dotnet build DiagnosticLog.slnx --no-restore -c Release
+
+      # Integration tests need a real SQL Server instance + the diagnostics-logs-schema.sql
+      # script applied, neither of which exist on this runner, so only the unit tests run here.
+      - name: Test (unit)
+        run: dotnet test tests/unit/Diagnostics.Logs.UnitTests --no-build -c Release
+
+      - name: Pack (validate packaging, matches publish.yml's package list)
+        run: |
+          for proj in \
+            src/Diagnostics.Abstractions/Diagnostics.Abstractions.csproj \
+            src/Diagnostics.NLog/Diagnostics.NLog.csproj \
+            src/Diagnostics.AspNetCore/Diagnostics.AspNetCore.csproj ; do
+            dotnet pack "$proj" --no-build -c Release -o ./artifacts
+          done
